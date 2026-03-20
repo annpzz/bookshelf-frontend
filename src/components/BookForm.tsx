@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Book, BookStatus, GoogleBookInfo } from '../types/book';
 import { fetchBookByISBN } from '../services/bookApi';
 import { Scanner } from './Scanner';
-import { ScanLine, Save, X, Loader2, BookOpen, Heart, Package } from 'lucide-react';
+import { ScanLine, Save, X, Loader2, BookOpen, Heart, Package, Search } from 'lucide-react';
 
 interface BookFormProps {
   initialData?: Partial<Book>;
@@ -32,6 +32,7 @@ export function BookForm({ initialData, onSubmit, onCancel, isEdit }: BookFormPr
   const [scanning, setScanning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetchMsg, setFetchMsg] = useState('');
+  const [searchIsbn, setSearchIsbn] = useState('');
 
   const handleScan = async (isbn: string) => {
     setShowScanner(false);
@@ -96,6 +97,29 @@ export function BookForm({ initialData, onSubmit, onCancel, isEdit }: BookFormPr
           {scanning ? <Loader2 size={18} className="spin" /> : <ScanLine size={18} />}
           {scanning ? 'กำลังค้นหา...' : 'สแกนบาร์โค้ด / QR Code'}
         </button>
+
+        <div className="manual-search-row">
+          <input 
+            type="text" 
+            placeholder="หรือกรอกเลข ISBN เพื่อค้นหาออโต้..." 
+            value={searchIsbn}
+            onChange={(e) => setSearchIsbn(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (searchIsbn.trim()) handleScan(searchIsbn.trim());
+              }
+            }}
+          />
+          <button 
+            type="button" 
+            className="btn-secondary" 
+            onClick={() => handleScan(searchIsbn.trim())}
+            disabled={scanning || !searchIsbn.trim()}
+          >
+            <Search size={16} /> ค้นหา
+          </button>
+        </div>
 
         {fetchMsg && <p className={`fetch-msg ${fetchMsg.startsWith('✓') ? 'success' : ''}`}>{fetchMsg}</p>}
 
