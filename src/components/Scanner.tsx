@@ -17,21 +17,33 @@ export function Scanner({ onScan, onClose }: ScannerProps) {
     const startScanner = async () => {
       try {
         html5QrCode = new Html5Qrcode('qr-reader');
-        await html5QrCode.start(
-          { facingMode: 'environment' }, // Force back camera
-          { fps: 10, qrbox: { width: 280, height: 180 }, aspectRatio: 1.6 },
-          (decodedText) => {
-            const isbn = decodedText.replace(/\D/g, '');
-            html5QrCode.stop().then(() => {
-              if (isbn.length === 10 || isbn.length === 13) {
-                onScan(isbn);
-              } else {
-                onScan(decodedText);
-              }
-            }).catch(() => { /* ignore */ });
-          },
-          () => { /* ignore scan errors */ }
-        );
+        const config = { fps: 10, qrbox: { width: 280, height: 180 }, aspectRatio: 1.6 };
+        const onDecoded = (decodedText: string) => {
+          const isbn = decodedText.replace(/\D/g, '');
+          html5QrCode.stop().then(() => {
+            if (isbn.length === 10 || isbn.length === 13) onScan(isbn);
+            else onScan(decodedText);
+          }).catch(() => { /* ignore */ });
+        };
+        const onScanError = () => { /* ignore frequent scan errors */ };
+
+        try {
+          // Try back camera first
+          await html5QrCode.start({ facingMode: 'environment' }, config, onDecoded, onScanError);
+        } catch (envErr) {
+          try {
+            // Fallback to front camera
+            await html5QrCode.start({ facingMode: 'user' }, config, onDecoded, onScanError);
+          } catch (userErr) {
+            // Fallback to any available camera ID
+            const devices = await Html5Qrcode.getCameras();
+            if (devices && devices.length > 0) {
+              await html5QrCode.start(devices[0].id, config, onDecoded, onScanError);
+            } else {
+              throw new Error('ไม่พบกล้องในอุปกรณ์นี้');
+            }
+          }
+        }
         setLoading(false);
       } catch (err) {
         setError('ไม่สามารถเปิดใช้งานกล้องด้านหลังได้ (กรุณาอนุญาตให้ใช้งานกล้อง)');
