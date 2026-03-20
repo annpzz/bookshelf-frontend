@@ -45,13 +45,13 @@ export async function fetchBookByISBN(isbn: string): Promise<Partial<GoogleBookI
   // 3. Fallback to Thai Bookstores (SE-ED) via CORS Proxy
   try {
     const seedUrl = `https://www.se-ed.com/product/search.aspx?keyword=${isbn}`;
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(seedUrl)}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(seedUrl)}`;
     const res = await fetch(proxyUrl);
     if (res.ok) {
-      const data = await res.json();
-      if (data.contents) {
+      const html = await res.text();
+      if (html) {
         const parser = new DOMParser();
-        const doc = parser.parseFromString(data.contents, 'text/html');
+        const doc = parser.parseFromString(html, 'text/html');
         
         const titleNode = doc.querySelector('meta[property="og:title"]');
         const imageNode = doc.querySelector('meta[property="og:image"]');

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { X, ScanLine } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { X, ScanLine, Loader2 } from 'lucide-react';
 
 interface ScannerProps {
   onScan: (isbn: string) => void;
@@ -9,42 +9,43 @@ interface ScannerProps {
 
 export function Scanner({ onScan, onClose }: ScannerProps) {
   const [error, setError] = useState('');
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-  const mountedRef = useRef(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (mountedRef.current) return;
-    mountedRef.current = true;
-
-    const scanner = new Html5QrcodeScanner(
-      'qr-reader',
-      { fps: 10, qrbox: { width: 280, height: 180 }, aspectRatio: 1.6 },
-      false
-    );
-
-    scanner.render(
-      (decodedText) => {
-        // Extract ISBN from barcode - strip non-digits for EAN/ISBN barcodes
-        const isbn = decodedText.replace(/\D/g, '');
-        if (isbn.length === 10 || isbn.length === 13) {
-          scanner.clear().catch(() => {});
-          onScan(isbn);
-        } else {
-          onScan(decodedText);
-          scanner.clear().catch(() => {});
-        }
-      },
-      (err) => {
-        if (!err.includes('No QR code')) {
-          setError('ไม่สามารถสแกนได้: ' + err);
-        }
+    let html5QrCode: Html5Qrcode;
+    
+    const startScanner = async () => {
+      try {
+        html5QrCode = new Html5Qrcode('qr-reader');
+        await html5QrCode.start(
+          { facingMode: 'environment' }, // Force back camera
+          { fps: 10, qrbox: { width: 280, height: 180 }, aspectRatio: 1.6 },
+          (decodedText) => {
+            const isbn = decodedText.replace(/\D/g, '');
+            html5QrCode.stop().then(() => {
+              if (isbn.length === 10 || isbn.length === 13) {
+                onScan(isbn);
+              } else {
+                onScan(decodedText);
+              }
+            }).catch(() => { /* ignore */ });
+          },
+          () => { /* ignore scan errors */ }
+        );
+        setLoading(false);
+      } catch (err) {
+        setError('ไม่สามารถเปิดใช้งานกล้องด้านหลังได้ (กรุณาอนุญาตให้ใช้งานกล้อง)');
+        setLoading(false);
       }
-    );
+    };
 
-    scannerRef.current = scanner;
+    const timer = setTimeout(startScanner, 100);
 
     return () => {
-      scanner.clear().catch(() => {});
+      clearTimeout(timer);
+      if (html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().catch(() => {});
+      }
     };
   }, [onScan]);
 
@@ -59,7 +60,14 @@ export function Scanner({ onScan, onClose }: ScannerProps) {
           <button className="close-btn" onClick={onClose}><X size={20} /></button>
         </div>
         <p className="scanner-hint">วางบาร์โค้ดหนังสือ (ISBN) ให้อยู่ในกรอบ</p>
-        <div id="qr-reader" />
+        
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+            <Loader2 size={32} className="spin" style={{ color: 'var(--accent)' }} />
+          </div>
+        )}
+        
+        <div id="qr-reader" style={{ display: loading ? 'none' : 'block' }} />
         {error && <p className="scanner-error">{error}</p>}
       </div>
     </div>
